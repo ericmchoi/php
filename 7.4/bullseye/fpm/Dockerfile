@@ -6,6 +6,14 @@
 
 FROM debian:bullseye-slim
 
+# Overwrite sources.list to point completely to the main frozen archive
+# and eliminate the non-functional security/updates repos
+RUN echo "deb http://archive.debian.org/debian bullseye main contrib non-free\n" > /etc/apt/sources.list
+RUN echo "deb http://archive.debian.org/debian-security bullseye-security main\n" >> /etc/apt/sources.list
+
+# Disable Valid-Until checks so apt ignores expired archive signatures
+RUN echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+
 # prevent Debian's PHP packages from being installed
 # https://github.com/docker-library/php/pull/542
 RUN set -eux; \
@@ -33,6 +41,7 @@ RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		$PHPIZE_DEPS \
+		bison \
 		ca-certificates \
 		curl \
 		xz-utils \
@@ -61,8 +70,8 @@ ENV PHP_LDFLAGS="-Wl,-O1 -pie"
 ENV GPG_KEYS 42670A7FE4D0441C8E4632349E4FDC074A4EF02D 5A52880781F755608BF815FC910DEB46F53EA312
 
 ENV PHP_VERSION 7.4.33
-ENV PHP_URL="https://www.php.net/distributions/php-7.4.33.tar.xz" PHP_ASC_URL="https://www.php.net/distributions/php-7.4.33.tar.xz.asc"
-ENV PHP_SHA256="924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927"
+ENV PHP_URL="https://github.com/php/php-src/archive/712e60f9edfd03f0960fc4fc3c2c375f42b90aa2.tar.gz" PHP_ASC_URL=""
+ENV PHP_SHA256=""
 
 RUN set -eux; \
 	\
@@ -74,7 +83,7 @@ RUN set -eux; \
 	mkdir -p /usr/src; \
 	cd /usr/src; \
 	\
-	curl -fsSL -o php.tar.xz "$PHP_URL"; \
+	curl -fsSL -o php.tar.gz "$PHP_URL"; \
 	\
 	if [ -n "$PHP_SHA256" ]; then \
 		echo "$PHP_SHA256 *php.tar.xz" | sha256sum -c -; \
@@ -126,6 +135,7 @@ RUN set -eux; \
 	if [ ! -d /usr/include/curl ]; then \
 		ln -sT "/usr/include/$debMultiarch/curl" /usr/local/include/curl; \
 	fi; \
+	./buildconf; \
 	./configure \
 		--build="$gnuArch" \
 		--with-config-file-path="$PHP_INI_DIR" \
